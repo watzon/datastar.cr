@@ -32,11 +32,10 @@ describe Datastar::ServerSentEventGenerator do
   end
 
   describe "#signals" do
-    it "returns signals from request header" do
+    it "returns signals from query params for GET requests" do
       io = IO::Memory.new
       response = HTTP::Server::Response.new(io)
-      headers = HTTP::Headers{"Datastar-Signal" => %q({"test": "value"})}
-      request = HTTP::Request.new("GET", "/", headers)
+      request = HTTP::Request.new("GET", "/?datastar=%7B%22test%22%3A%22value%22%7D")
 
       sse = Datastar::ServerSentEventGenerator.new(request, response)
       sse.signals["test"].as_s.should eq "value"
@@ -98,7 +97,7 @@ describe Datastar::ServerSentEventGenerator do
       response.close
       output = io.to_s
       output.should contain "event: datastar-patch-elements"
-      output.should contain "data: fragments <div id=\"test\">Hello</div>"
+      output.should contain "data: elements <div id=\"test\">Hello</div>"
     end
 
     it "sends with custom selector" do
@@ -130,7 +129,7 @@ describe Datastar::ServerSentEventGenerator do
 
       response.close
       output = io.to_s
-      output.should contain "data: mergeMode append"
+      output.should contain "data: mode append"
     end
 
     it "accepts Renderable objects" do
@@ -185,7 +184,7 @@ describe Datastar::ServerSentEventGenerator do
       output = io.to_s
       output.should contain "event: datastar-patch-elements"
       output.should contain "data: selector #old-element"
-      output.should contain "data: fragments"
+      output.should contain "data: mode remove"
     end
 
     it "supports use_view_transition option" do
