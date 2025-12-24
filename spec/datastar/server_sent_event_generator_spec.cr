@@ -331,4 +331,37 @@ describe Datastar::ServerSentEventGenerator do
       output.should contain "location"
     end
   end
+
+  describe "#check_connection!" do
+    it "sends a heartbeat comment when connection is open" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.check_connection!
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain ": heartbeat"
+    end
+
+    it "raises IO::Error if connection is already closed" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      # Close the response first
+      response.close
+
+      expect_raises(IO::Error) do
+        sse.check_connection!
+      end
+    end
+  end
 end

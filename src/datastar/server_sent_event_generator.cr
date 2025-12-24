@@ -93,6 +93,7 @@ module Datastar
     def stream(&block : ServerSentEventGenerator -> Nil) : Nil
       send_headers
       start_output_loop unless @output_loop_started
+      start_heartbeat if @stream_count.get == 0 # Only start heartbeat once
 
       @stream_count.add(1)
 
@@ -344,6 +345,52 @@ module Datastar
     # ```
     def redirect(url : String) : Nil
       execute_script(%(window.location = "#{url}"))
+    end
+
+    # Checks if the client connection is still alive.
+    #
+    # Raises `IO::Error` if the connection has been closed.
+    # This is useful for long-running streams where you want to
+    # detect disconnections early.
+    #
+    # ```
+    # sse.stream do |stream|
+    #   loop do
+    #     stream.check_connection!
+    #     # ... wait for events ...
+    #   end
+    # end
+    # ```
+    def check_connection! : Nil
+      raise IO::Error.new("Connection closed") if @closed
+
+      begin
+        # Send an SSE comment as a heartbeat
+        @response.print(": heartbeat\n\n")
+        @response.flush
+      rescue ex : IO::Error
+        @closed = true
+        @on_client_disconnect.try &.call
+        raise ex
+      end
+    end
+
+    private def start_heartbeat : Nil
+      interval = @heartbeat
+      return unless interval.is_a?(Time::Span)
+
+      spawn do
+        loop do
+          sleep interval
+          break if @closed || @output_channel.closed?
+
+          begin
+            check_connection!
+          rescue IO::Error
+            break
+          end
+        end
+      end
     end
   end
 end
