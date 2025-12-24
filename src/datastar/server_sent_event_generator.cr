@@ -32,6 +32,7 @@ module Datastar
     @output_channel : Channel(String) = Channel(String).new(100)
     @stream_count : Atomic(Int32) = Atomic(Int32).new(0)
     @output_loop_started : Bool = false
+    @completion_channel : Channel(Nil) = Channel(Nil).new
 
     def initialize(
       @request : HTTP::Request,
@@ -101,17 +102,17 @@ module Datastar
         rescue ex
           handle_error(ex)
         ensure
-          if @stream_count.sub(1) == 0
-            # Last stream finished, close the channel
+          # Atomic#sub returns the OLD value, so if it was 1, it's now 0
+          old_count = @stream_count.sub(1)
+          if old_count == 1
+            # Last stream finished, close the output channel
             @output_channel.close
           end
         end
       end
 
-      # Wait for all streams to complete
-      until @output_channel.closed?
-        Fiber.yield
-      end
+      # Wait for completion signal from output loop
+      @completion_channel.receive
 
       @on_server_disconnect.try &.call unless @closed
     end
@@ -146,6 +147,8 @@ module Datastar
             break
           end
         end
+        # Signal completion when channel is closed and all events processed
+        @completion_channel.send(nil)
       end
     end
 
