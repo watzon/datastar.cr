@@ -18,7 +18,6 @@ class DemoController < ATH::Controller
   # SSE endpoint that streams a counter incrementing every second.
   @[ARTA::Get("/counter/start")]
   def start_counter(request : ATH::Request) : ATH::StreamedResponse
-    pp request
     datastar_stream(request) do |sse|
       if @@counter_active.get && !sse.closed?
         sse.patch_elements(StatusMessage.new("Counter is already running!"))
