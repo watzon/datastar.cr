@@ -4,6 +4,7 @@ require "./configuration"
 require "./consts"
 require "./renderable"
 require "./server_sent_event"
+require "./pubsub/pubsub"
 
 module Datastar
   # Shared SSE stream implementation backed by an IO.
@@ -25,6 +26,7 @@ module Datastar
     @stream_count : Atomic(Int32) = Atomic(Int32).new(0)
     @output_loop_started : Bool = false
     @completion_channel : Channel(Nil) = Channel(Nil).new
+    @pubsub_connection : PubSub::Connection?
 
     def initialize(
       @io : IO,
@@ -54,6 +56,18 @@ module Datastar
       @on_error = block
     end
 
+    # Subscribes this stream to a pub/sub topic.
+    #
+    # The connection will receive all broadcasts to the topic.
+    # Automatically unsubscribes when the stream ends.
+    def subscribe(topic : String) : Nil
+      @pubsub_connection ||= PubSub::Connection.new(
+        output_channel: @output_channel
+      )
+
+      PubSub.manager!.subscribe(topic, @pubsub_connection.not_nil!)
+    end
+
     # Returns true if the connection has been closed.
     def closed? : Bool
       @closed
@@ -76,6 +90,11 @@ module Datastar
         rescue ex
           handle_error(ex)
         ensure
+          # Cleanup pub/sub subscriptions
+          if conn = @pubsub_connection
+            PubSub.manager!.unsubscribe_all(conn)
+          end
+
           old_count = @stream_count.sub(1)
           if old_count == 1
             @output_channel.close
