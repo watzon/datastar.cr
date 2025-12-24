@@ -143,7 +143,9 @@ patch "/todos/:id" do |env|
 
   env.datastar_stream do |sse|
     signals = sse.signals
-    new_text = signals["editText"]?.try(&.as_s?) || ""
+    # Signal name is dynamic: edit{uuid without hyphens}
+    signal_name = "edit#{id.gsub("-", "")}"
+    new_text = signals[signal_name]?.try(&.as_s?) || ""
 
     if todo = STORE.todos.find { |t| t.id == id }
       unless new_text.empty?

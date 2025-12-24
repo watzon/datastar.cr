@@ -31,12 +31,12 @@ class TodoItem
       end
 
       if @editing
+        # Use data-bind with value syntax for dynamic signal name
         input class: "edit",
           value: @todo.text,
-          autofocus: true,
-          "data-signals:editText": @todo.text,
-          "data-bind:editText": "",
-          "data-on:keydown": "evt.key === 'Enter' && @patch('/todos/#{@todo.id}') || evt.key === 'Escape' && @get('/todos/#{@todo.id}/cancel')",
+          "data-init": "el.focus(); el.select()",
+          "data-bind": "edit#{@todo.id.gsub("-", "")}",
+          "data-on:keydown": "evt.key === 'Enter' ? @patch('/todos/#{@todo.id}') : evt.key === 'Escape' ? @get('/todos/#{@todo.id}/cancel') : null",
           "data-on:blur": "@patch('/todos/#{@todo.id}')"
       end
     end
