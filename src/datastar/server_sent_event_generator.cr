@@ -101,7 +101,7 @@ module Datastar
         rescue ex
           handle_error(ex)
         ensure
-          if @stream_count.sub(1) == 1
+          if @stream_count.sub(1) == 0
             # Last stream finished, close the channel
             @output_channel.close
           end
