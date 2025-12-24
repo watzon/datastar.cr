@@ -10,25 +10,37 @@ Datastar is a lightweight (~10KB) framework that brings reactive UI updates to s
 
 ## Table of Contents
 
-- [Background](#background)
-- [Install](#install)
-- [Usage](#usage)
-  - [Quick Start](#quick-start)
-  - [Streaming Mode](#streaming-mode)
-  - [One-Off Mode](#one-off-mode)
-- [API](#api)
-  - [DOM Manipulation](#dom-manipulation)
-  - [Signal Management](#signal-management)
-  - [Script Execution](#script-execution)
-  - [Connection Management](#connection-management)
-- [Framework Integration](#framework-integration)
-  - [Blueprint](#blueprint)
-  - [Athena](#athena)
-  - [Custom Components](#custom-components)
-- [Configuration](#configuration)
-- [Maintainers](#maintainers)
-- [Contributing](#contributing)
-- [License](#license)
+- [Datastar.cr](#datastarcr)
+  - [Table of Contents](#table-of-contents)
+  - [Background](#background)
+  - [Install](#install)
+  - [Usage](#usage)
+    - [Quick Start](#quick-start)
+    - [Streaming Mode](#streaming-mode)
+    - [One-Off Mode](#one-off-mode)
+  - [API](#api)
+    - [DOM Manipulation](#dom-manipulation)
+      - [`#patch_elements`](#patch_elements)
+      - [`#remove_elements`](#remove_elements)
+    - [Signal Management](#signal-management)
+      - [`#patch_signals`](#patch_signals)
+      - [`#remove_signals`](#remove_signals)
+      - [Reading Signals](#reading-signals)
+    - [Script Execution](#script-execution)
+      - [`#execute_script`](#execute_script)
+      - [`#redirect`](#redirect)
+    - [Connection Management](#connection-management)
+  - [Framework Integration](#framework-integration)
+    - [Blueprint](#blueprint)
+    - [Athena](#athena)
+    - [Request Detection](#request-detection)
+    - [Custom Components](#custom-components)
+  - [Configuration](#configuration)
+    - [Global](#global)
+    - [Per-Instance](#per-instance)
+  - [Maintainers](#maintainers)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Background
 
@@ -221,19 +233,45 @@ require "datastar"
 require "datastar/adapters/athena"
 
 class EventsController < ATH::Controller
-  include Datastar::Athena::Controller
+  include Datastar::Athena::LiveController
 
   @[ARTA::Get("/events")]
-  def stream_events : Nil
-    sse = datastar
-
-    sse.stream do |stream|
+  def stream_events(request : ATH::Request) : ATH::StreamedResponse
+    datastar_stream(request) do |stream|
       10.times do |i|
         sleep 1.second
         stream.patch_elements(%(<div id="count">#{i}</div>))
       end
     end
   end
+end
+```
+
+The `LiveController` mixin also provides `datastar_render` for HTML responses:
+
+```crystal
+@[ARTA::Get("/")]
+def index : ATH::Response
+  datastar_render("<h1>Hello</h1>")
+end
+```
+
+### Request Detection
+
+Use `Datastar::RequestDetection` to tell whether a request came from Datastar:
+
+```crystal
+request = HTTP::Request.new("GET", "/?datastar=%7B%7D")
+Datastar.datastar_request?(request) # => true
+```
+
+The Athena adapter exposes the same helper:
+
+```crystal
+if datastar_request?(request)
+  datastar_render("<div>Datastar response</div>")
+else
+  datastar_render("<html>Full page</html>")
 end
 ```
 
