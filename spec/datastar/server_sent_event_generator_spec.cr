@@ -364,4 +364,41 @@ describe Datastar::ServerSentEventGenerator do
       end
     end
   end
+
+  describe "one-off mode" do
+    it "allows sending events without stream block" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.patch_elements(%(<div id="test">Direct</div>))
+      sse.finish
+
+      response.close
+      output = io.to_s
+      output.should contain "datastar-patch-elements"
+      output.should contain "Direct"
+    end
+
+    it "allows multiple one-off events before finish" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.patch_elements(%(<div id="one">First</div>))
+      sse.patch_signals(count: 42)
+      sse.execute_script("console.log('test')")
+      sse.finish
+
+      response.close
+      output = io.to_s
+      output.should contain "First"
+      output.should contain "count"
+      output.should contain "console.log"
+    end
+  end
 end

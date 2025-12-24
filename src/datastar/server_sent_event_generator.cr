@@ -155,7 +155,21 @@ module Datastar
 
     private def send_event(event : ServerSentEvent) : Nil
       return if @closed
-      @output_channel.send(event.to_s)
+
+      if @output_loop_started
+        # Streaming mode: send through channel
+        @output_channel.send(event.to_s)
+      else
+        # One-off mode: write directly to response
+        send_headers
+        begin
+          @response.print(event.to_s)
+          @response.flush
+        rescue IO::Error
+          @closed = true
+          @on_client_disconnect.try &.call
+        end
+      end
     end
 
     # Patches elements into the DOM.
@@ -373,6 +387,21 @@ module Datastar
         @on_client_disconnect.try &.call
         raise ex
       end
+    end
+
+    # Finishes the response in one-off (non-streaming) mode.
+    #
+    # Call this after sending one-off events to close the response properly.
+    #
+    # ```
+    # sse.patch_elements("<div>Done</div>")
+    # sse.finish
+    # ```
+    def finish : Nil
+      return if @closed
+
+      @on_server_disconnect.try &.call
+      @closed = true
     end
 
     private def start_heartbeat : Nil
