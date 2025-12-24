@@ -1,6 +1,7 @@
 require "spec"
 require "../src/datastar"
 require "../src/datastar/pubsub/connection"
+require "../src/datastar/pubsub/backend"
 
 # Test helper component for Renderable tests
 class TestComponent
