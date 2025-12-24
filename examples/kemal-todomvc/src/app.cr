@@ -80,6 +80,9 @@ patch "/todos" do |env|
     unless input.empty?
       STORE.add(input)
 
+      # Send updated list to this client
+      sse.patch_elements(TodoList.new(STORE.todos))
+
       # Broadcast update to all connected clients
       broadcast_todos
     end
@@ -93,6 +96,11 @@ post "/todos/:id/toggle" do |env|
   env.datastar_stream do |sse|
     STORE.toggle(id)
 
+    # Send updated state to this client (acknowledges the action)
+    if todo = STORE.todos.find { |t| t.id == id }
+      sse.patch_elements(TodoItem.new(todo))
+    end
+
     # Broadcast update to all connected clients
     broadcast_todos
   end
@@ -102,6 +110,9 @@ end
 post "/todos/toggle-all" do |env|
   env.datastar_stream do |sse|
     STORE.toggle_all
+
+    # Send updated list to this client
+    sse.patch_elements(TodoList.new(STORE.todos))
 
     # Broadcast update to all connected clients
     broadcast_todos
@@ -115,15 +126,26 @@ delete "/todos/:id" do |env|
   env.datastar_stream do |sse|
     STORE.remove(id)
 
+    # Send updated list to this client
+    sse.patch_elements(TodoList.new(STORE.todos))
+
     # Broadcast update to all connected clients
     broadcast_todos
   end
 end
 
 # Delete all completed todos
-delete "/todos/completed" do |env|
+post "/todos/clear-completed" do |env|
   env.datastar_stream do |sse|
     STORE.remove_completed
+
+    # Send updated list and footer to this client
+    sse.patch_elements(TodoList.new(STORE.todos))
+    sse.patch_elements(TodoFooter.new(
+      STORE.pending_count,
+      STORE.has_completed?,
+      FilterMode::All
+    ))
 
     # Broadcast update to all connected clients
     broadcast_todos
@@ -167,6 +189,9 @@ patch "/todos/:id" do |env|
         todo.text = new_text
       end
 
+      # Send updated todo to this client (exits edit mode)
+      sse.patch_elements(TodoItem.new(todo))
+
       # Broadcast update to all connected clients
       broadcast_todos
     end
@@ -202,6 +227,9 @@ end
 put "/reset" do |env|
   env.datastar_stream do |sse|
     STORE.reset_to_defaults
+
+    # Send updated list to this client
+    sse.patch_elements(TodoList.new(STORE.todos))
 
     # Broadcast update to all connected clients
     broadcast_todos

@@ -1,12 +1,12 @@
-name: athena-blueprint
+name: athena-todomvc
 version: 0.1.0
 
 authors:
   - Chris Watson <cawatson1993@gmail.com>
 
 targets:
-  athena-blueprint:
-    main: src/athena-blueprint.cr
+  athena-todomvc:
+    main: src/app.cr
 
 dependencies:
   datastar:
