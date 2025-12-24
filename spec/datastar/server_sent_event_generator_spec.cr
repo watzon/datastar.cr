@@ -204,4 +204,60 @@ describe Datastar::ServerSentEventGenerator do
       output.should contain "data: useViewTransition true"
     end
   end
+
+  describe "#patch_signals" do
+    it "sends signals as JSON" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.patch_signals(count: 42, name: "test")
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "event: datastar-patch-signals"
+      output.should contain "data: signals"
+      output.should contain "count"
+      output.should contain "42"
+    end
+
+    it "supports only_if_missing option" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.patch_signals({count: 1}, only_if_missing: true)
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "data: onlyIfMissing true"
+    end
+  end
+
+  describe "#remove_signals" do
+    it "sends remove signals event" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.remove_signals(["user.name", "user.email"])
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "event: datastar-patch-signals"
+      output.should contain "data: signals"
+    end
+  end
 end

@@ -241,5 +241,61 @@ module Datastar
 
       send_event(event)
     end
+
+    # Patches signals (reactive state) in the browser.
+    #
+    # See https://data-star.dev/reference/sse_events#datastar-patch-signals
+    #
+    # ```
+    # sse.patch_signals(count: 42, user: {name: "Alice"})
+    # sse.patch_signals({enabled: true}, only_if_missing: true)
+    # ```
+    def patch_signals(
+      **signals
+    ) : Nil
+      patch_signals(signals, only_if_missing: DEFAULT_SIGNALS_ONLY_IF_MISSING)
+    end
+
+    # :ditto:
+    def patch_signals(
+      signals : Hash | NamedTuple,
+      *,
+      only_if_missing : Bool = DEFAULT_SIGNALS_ONLY_IF_MISSING
+    ) : Nil
+      data_lines = [] of String
+
+      if only_if_missing
+        data_lines << "onlyIfMissing true"
+      end
+
+      data_lines << "signals #{signals.to_json}"
+
+      event = ServerSentEvent.new(
+        event_type: EventType::PatchSignals,
+        data_lines: data_lines
+      )
+
+      send_event(event)
+    end
+
+    # Removes signals from the browser state.
+    #
+    # ```
+    # sse.remove_signals(["user.name", "user.email"])
+    # ```
+    def remove_signals(paths : Array(String)) : Nil
+      # Create an object with null values for each path
+      signals_hash = {} of String => Nil
+      paths.each { |path| signals_hash[path] = nil }
+
+      data_lines = ["signals #{signals_hash.to_json}"]
+
+      event = ServerSentEvent.new(
+        event_type: EventType::PatchSignals,
+        data_lines: data_lines
+      )
+
+      send_event(event)
+    end
   end
 end
