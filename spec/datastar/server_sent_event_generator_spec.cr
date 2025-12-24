@@ -82,4 +82,90 @@ describe Datastar::ServerSentEventGenerator do
       counter.get.should eq 2
     end
   end
+
+  describe "#patch_elements" do
+    it "sends a fragment with default options" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.patch_elements(%(<div id="test">Hello</div>))
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "event: datastar-patch-elements"
+      output.should contain "data: fragments <div id=\"test\">Hello</div>"
+    end
+
+    it "sends with custom selector" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.patch_elements("<span>Hi</span>", selector: "#target")
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "data: selector #target"
+    end
+
+    it "sends with merge mode" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.patch_elements("<li>Item</li>", mode: Datastar::FragmentMergeMode::Append)
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "data: mergeMode append"
+    end
+
+    it "accepts Renderable objects" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      component = TestComponent.new("World")
+
+      sse.stream do |stream|
+        stream.patch_elements(component)
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "Hello, World!"
+    end
+
+    it "accepts array of elements" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.patch_elements(["<div>One</div>", "<div>Two</div>"])
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "One"
+      output.should contain "Two"
+    end
+  end
 end

@@ -153,5 +153,63 @@ module Datastar
       return if @closed
       @output_channel.send(event.to_s)
     end
+
+    # Patches elements into the DOM.
+    #
+    # See https://data-star.dev/reference/sse_events#datastar-patch-elements
+    #
+    # ```
+    # sse.patch_elements(%(<div id="message">Hello</div>))
+    # sse.patch_elements(MyComponent.new)
+    # sse.patch_elements("<li>Item</li>", mode: FragmentMergeMode::Append)
+    # ```
+    def patch_elements(
+      fragment : String | Renderable,
+      *,
+      selector : String = WHOLE_DOCUMENT_SELECTOR,
+      mode : FragmentMergeMode = DEFAULT_FRAGMENT_MERGE_MODE,
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+    ) : Nil
+      patch_elements([fragment], selector: selector, mode: mode, use_view_transition: use_view_transition)
+    end
+
+    # Patches multiple elements into the DOM.
+    def patch_elements(
+      fragments : Array(String | Renderable),
+      *,
+      selector : String = WHOLE_DOCUMENT_SELECTOR,
+      mode : FragmentMergeMode = DEFAULT_FRAGMENT_MERGE_MODE,
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+    ) : Nil
+      data_lines = [] of String
+
+      # Add selector if specified
+      unless selector.empty?
+        data_lines << "selector #{selector}"
+      end
+
+      # Add merge mode if not default
+      if mode != DEFAULT_FRAGMENT_MERGE_MODE
+        data_lines << "mergeMode #{mode.to_s.downcase}"
+      end
+
+      # Add view transition if enabled
+      if use_view_transition
+        data_lines << "useViewTransition true"
+      end
+
+      # Add fragments
+      fragments.each do |fragment|
+        html = fragment.is_a?(Renderable) ? fragment.to_datastar_html : fragment
+        data_lines << "fragments #{html}"
+      end
+
+      event = ServerSentEvent.new(
+        event_type: EventType::PatchElements,
+        data_lines: data_lines
+      )
+
+      send_event(event)
+    end
   end
 end
