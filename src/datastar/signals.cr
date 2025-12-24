@@ -4,7 +4,8 @@ require "uri"
 module Datastar
   # Handles parsing of signals sent from the browser.
   #
-  # Signals can be sent via the `Datastar-Signal` header as JSON (possibly URL-encoded).
+  # For GET requests, signals are sent via the `datastar` query parameter.
+  # For other HTTP methods, signals are sent in the request body as JSON.
   module Signals
     extend self
 
@@ -12,6 +13,8 @@ module Datastar
     def parse(json : String?) : JSON::Any
       return JSON::Any.new({} of String => JSON::Any) if json.nil? || json.empty?
       JSON.parse(json)
+    rescue JSON::ParseException
+      JSON::Any.new({} of String => JSON::Any)
     end
 
     # Parses a JSON string into a typed object.
@@ -22,34 +25,45 @@ module Datastar
 
     # Extracts signals from an HTTP request.
     #
-    # Looks for the `Datastar-Signal` header and parses it as JSON.
-    # The header value may be URL-encoded.
+    # For GET requests, looks for the `datastar` query parameter.
+    # For other methods, parses the request body as JSON.
     def from_request(request : HTTP::Request) : JSON::Any
-      header = request.headers[DATASTAR_SIGNAL_HEADER]?
-      return JSON::Any.new({} of String => JSON::Any) if header.nil? || header.empty?
-
-      # Try to URL-decode if it looks encoded
-      decoded = begin
-        URI.decode_www_form(header)
-      rescue
-        header
+      if request.method == "GET"
+        # For GET requests, signals are in the query parameter
+        if query = request.query
+          params = URI::Params.parse(query)
+          if datastar_param = params[DATASTAR_QUERY_PARAM]?
+            return parse(datastar_param)
+          end
+        end
+        JSON::Any.new({} of String => JSON::Any)
+      else
+        # For other methods, parse the body
+        if body = request.body
+          content = body.gets_to_end
+          return parse(content) unless content.empty?
+        end
+        JSON::Any.new({} of String => JSON::Any)
       end
-
-      parse(decoded)
     end
 
     # Extracts signals from an HTTP request into a typed object.
     def from_request(request : HTTP::Request, type : T.class) : T forall T
-      header = request.headers[DATASTAR_SIGNAL_HEADER]?
-      raise ArgumentError.new("No #{DATASTAR_SIGNAL_HEADER} header found") if header.nil? || header.empty?
-
-      decoded = begin
-        URI.decode_www_form(header)
-      rescue
-        header
+      if request.method == "GET"
+        if query = request.query
+          params = URI::Params.parse(query)
+          if datastar_param = params[DATASTAR_QUERY_PARAM]?
+            return parse(datastar_param, type)
+          end
+        end
+        raise ArgumentError.new("No #{DATASTAR_QUERY_PARAM} query parameter found")
+      else
+        if body = request.body
+          content = body.gets_to_end
+          return parse(content, type) unless content.empty?
+        end
+        raise ArgumentError.new("No request body found")
       end
-
-      parse(decoded, type)
     end
   end
 end

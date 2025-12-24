@@ -3,7 +3,7 @@ require "../spec_helper"
 describe Datastar do
   describe "DATASTAR_VERSION" do
     it "matches expected protocol version" do
-      Datastar::DATASTAR_VERSION.should eq "1.0.0-beta.1"
+      Datastar::DATASTAR_VERSION.should eq "1.0.0-RC.7"
     end
   end
 
@@ -17,9 +17,14 @@ describe Datastar do
 
   describe "FragmentMergeMode" do
     it "has all merge modes" do
-      Datastar::FragmentMergeMode::Morph.to_s.downcase.should eq "morph"
+      Datastar::FragmentMergeMode::Outer.to_s.downcase.should eq "outer"
+      Datastar::FragmentMergeMode::Inner.to_s.downcase.should eq "inner"
+      Datastar::FragmentMergeMode::Replace.to_s.downcase.should eq "replace"
       Datastar::FragmentMergeMode::Append.to_s.downcase.should eq "append"
       Datastar::FragmentMergeMode::Prepend.to_s.downcase.should eq "prepend"
+      Datastar::FragmentMergeMode::Before.to_s.downcase.should eq "before"
+      Datastar::FragmentMergeMode::After.to_s.downcase.should eq "after"
+      Datastar::FragmentMergeMode::Remove.to_s.downcase.should eq "remove"
     end
   end
 end

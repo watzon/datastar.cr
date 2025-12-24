@@ -36,19 +36,24 @@ describe Datastar::Signals do
   end
 
   describe ".from_request" do
-    it "extracts signals from header" do
-      headers = HTTP::Headers{"Datastar-Signal" => %q({"key": "value"})}
-      request = HTTP::Request.new("GET", "/", headers)
+    it "extracts signals from query params for GET requests" do
+      # URL-encoded JSON: {"key": "value"}
+      request = HTTP::Request.new("GET", "/?datastar=%7B%22key%22%3A%22value%22%7D")
       signals = Datastar::Signals.from_request(request)
       signals["key"].as_s.should eq "value"
     end
 
-    it "extracts signals from URL-encoded header" do
-      encoded = URI.encode_www_form(%q({"key": "hello world"}))
-      headers = HTTP::Headers{"Datastar-Signal" => encoded}
-      request = HTTP::Request.new("GET", "/", headers)
+    it "extracts signals from body for POST requests" do
+      body = IO::Memory.new(%q({"key": "value"}))
+      request = HTTP::Request.new("POST", "/", body: body)
       signals = Datastar::Signals.from_request(request)
-      signals["key"].as_s.should eq "hello world"
+      signals["key"].as_s.should eq "value"
+    end
+
+    it "returns empty object when no signals present" do
+      request = HTTP::Request.new("GET", "/")
+      signals = Datastar::Signals.from_request(request)
+      signals.as_h.should be_empty
     end
   end
 end

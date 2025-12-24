@@ -1,12 +1,12 @@
 module Datastar
   # Datastar protocol version this SDK targets
-  DATASTAR_VERSION = "1.0.0-beta.1"
+  DATASTAR_VERSION = "1.0.0-RC.7"
 
   # Default SSE retry duration in milliseconds
   DEFAULT_SSE_RETRY_DURATION = 1000
 
   # Default settings
-  DEFAULT_FRAGMENT_MERGE_MODE     = FragmentMergeMode::Morph
+  DEFAULT_FRAGMENT_MERGE_MODE     = FragmentMergeMode::Outer
   DEFAULT_SIGNALS_ONLY_IF_MISSING = false
   DEFAULT_AUTOREMOVE_SCRIPT       = true
   DEFAULT_USE_VIEW_TRANSITION     = false
@@ -23,16 +23,19 @@ module Datastar
 
   # Fragment merge modes for patch_elements
   enum FragmentMergeMode
-    Morph
-    Inner
     Outer
+    Inner
+    Replace
     Prepend
     Append
     Before
     After
-    UpsertAttributes
+    Remove
   end
 
-  # Signal header names
-  DATASTAR_SIGNAL_HEADER = "datastar-signal"
+  # Request header that indicates a Datastar request
+  DATASTAR_REQUEST_HEADER = "Datastar-Request"
+
+  # Query parameter name for signals (used in GET requests)
+  DATASTAR_QUERY_PARAM = "datastar"
 end
