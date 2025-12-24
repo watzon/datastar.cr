@@ -1,0 +1,23 @@
+name: kemal-todomvc
+version: 0.1.0
+
+authors:
+  - Chris Watson <cawatson1993@gmail.com>
+
+targets:
+  kemal-todomvc:
+    main: src/app.cr
+
+dependencies:
+  datastar:
+    path: ../../
+  kemal:
+    github: kemalcr/kemal
+    version: "~> 1.8.0"
+  blueprint:
+    github: stephannv/blueprint
+    version: ~> 1.0.0
+
+crystal: ">= 1.18.2"
+
+license: MIT
