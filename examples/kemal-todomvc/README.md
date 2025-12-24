@@ -1,13 +1,13 @@
-# Athena + Datastar TodoMVC Example
+# Kemal + Datastar TodoMVC Example
 
-This example demonstrates how to use the Datastar Crystal SDK with the [Athena](https://athenaframework.org/) web framework and [Blueprint](https://github.com/stephannv/blueprint) HTML builder to create a fully functional TodoMVC application with real-time multi-session synchronization.
+This example demonstrates how to use the Datastar Crystal SDK with the [Kemal](https://kemalcr.com/) web framework and [Blueprint](https://github.com/stephannv/blueprint) HTML builder to create a fully functional TodoMVC application with real-time multi-session synchronization.
 
 ## Features Demonstrated
 
 - **SSE Streaming**: Live updates via Server-Sent Events
 - **Pub/Sub Synchronization**: Changes sync across all connected browser sessions
 - **Blueprint Components**: Type-safe HTML generation with Blueprint
-- **Datastar Integration**: Using the `Datastar::Athena::LiveController` mixin
+- **Datastar Integration**: Using the Kemal adapter helpers
 - **Signal Reading**: Reading reactive signals sent from the browser
 - **Full TodoMVC Functionality**: Add, toggle, edit, delete, and filter todos
 
@@ -19,7 +19,7 @@ This example demonstrates how to use the Datastar Crystal SDK with the [Athena](
 ## Installation
 
 ```bash
-cd examples/athena-todomvc
+cd examples/kemal-todomvc
 shards install
 ```
 
@@ -27,7 +27,7 @@ shards install
 
 ```bash
 shards build
-./bin/athena-todomvc
+./bin/kemal-todomvc
 ```
 
 Then open http://localhost:3000 in your browser.
@@ -38,15 +38,13 @@ Then open http://localhost:3000 in your browser.
 
 ```
 ├── src/
-│   ├── app.cr                    # Main entry point
+│   ├── app.cr                    # Main entry point with all routes
 │   ├── store.cr                  # Todo store with thread-safe operations
-│   ├── components/
-│   │   ├── todo_page.cr          # Full HTML page with Datastar setup
-│   │   ├── todo_list.cr          # Todo list component
-│   │   ├── todo_item.cr          # Individual todo item with edit mode
-│   │   └── todo_footer.cr        # Footer with filters and counts
-│   └── controllers/
-│       └── todo_controller.cr    # Athena controller with SSE endpoints
+│   └── components/
+│       ├── todo_page.cr          # Full HTML page with Datastar setup
+│       ├── todo_list.cr          # Todo list component
+│       ├── todo_item.cr          # Individual todo item with edit mode
+│       └── todo_footer.cr        # Footer with filters and counts
 ├── shard.yml
 └── README.md
 ```
@@ -73,9 +71,8 @@ end
 Clients connect to the `/updates` endpoint and subscribe to receive broadcasts:
 
 ```crystal
-@[ARTA::Get("/updates")]
-def updates(request : ATH::Request) : ATH::StreamedResponse
-  datastar_stream(request) do |sse|
+get "/updates" do |env|
+  env.datastar_stream do |sse|
     # Subscribe to receive broadcasts
     sse.subscribe(TODOS_TOPIC)
 
@@ -97,9 +94,10 @@ end
 When a todo is modified, the change is broadcast to all connected clients:
 
 ```crystal
-@[ARTA::Post("/todos/{id}/toggle")]
-def toggle_todo(request : ATH::Request, id : String) : ATH::StreamedResponse
-  datastar_stream(request) do |sse|
+post "/todos/:id/toggle" do |env|
+  id = env.params.url["id"]
+
+  env.datastar_stream do |sse|
     STORE.toggle(id)
 
     # Update this client immediately
@@ -108,10 +106,14 @@ def toggle_todo(request : ATH::Request, id : String) : ATH::StreamedResponse
     end
 
     # Broadcast to all subscribed clients
-    Datastar::PubSub.broadcast(TODOS_TOPIC) do |sse|
-      sse.patch_elements(TodoList.new(STORE.todos))
-      sse.patch_elements(TodoFooter.new(STORE.pending_count, STORE.has_completed?, FilterMode::All))
-    end
+    broadcast_todos
+  end
+end
+
+def broadcast_todos
+  Datastar::PubSub.broadcast(TODOS_TOPIC) do |sse|
+    sse.patch_elements(TodoList.new(STORE.todos))
+    sse.patch_elements(TodoFooter.new(STORE.pending_count, STORE.has_completed?, FilterMode::All))
   end
 end
 ```
@@ -151,9 +153,8 @@ end
 The controller reads signals sent from the browser:
 
 ```crystal
-@[ARTA::Patch("/todos")]
-def add_todo(request : ATH::Request) : ATH::StreamedResponse
-  datastar_stream(request) do |sse|
+patch "/todos" do |env|
+  env.datastar_stream do |sse|
     signals = sse.signals
     input = signals["input"]?.try(&.as_s?) || ""
 
@@ -165,6 +166,15 @@ def add_todo(request : ATH::Request) : ATH::StreamedResponse
   end
 end
 ```
+
+### 6. Kemal Adapter Helpers
+
+The Kemal adapter provides several convenience methods on `env`:
+
+- `env.datastar_stream { |sse| ... }` - Create an SSE streaming response
+- `env.datastar_render(fragment)` - Render HTML (string or Blueprint component)
+- `env.datastar_request?` - Check if request came from Datastar
+- `env.datastar_broadcast(topic) { |sse| ... }` - Broadcast to subscribers
 
 ## License
 

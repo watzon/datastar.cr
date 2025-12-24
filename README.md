@@ -13,6 +13,7 @@ Datastar is a lightweight (~10KB) framework that brings reactive UI updates to s
 - [Datastar.cr](#datastarcr)
   - [Table of Contents](#table-of-contents)
   - [Background](#background)
+  - [Examples](#examples)
   - [Install](#install)
   - [Usage](#usage)
     - [Quick Start](#quick-start)
@@ -62,6 +63,15 @@ This SDK implements the [Datastar SSE protocol](https://data-star.dev/reference/
 - Built-in adapters for Kemal, Athena, and Blueprint frameworks
 - Pub/sub system for multi-session synchronization
 - Flexible rendering with the `Renderable` protocol
+
+## Examples
+
+The `examples/` directory contains working TodoMVC implementations:
+
+- **[kemal-todomvc](examples/kemal-todomvc/)** - TodoMVC with Kemal, demonstrating pub/sub synchronization across browser sessions
+- **[athena-todomvc](examples/athena-todomvc/)** - TodoMVC with Athena framework and Blueprint components
+
+Each example demonstrates the full feature set including SSE streaming, pub/sub for multi-session sync, and reactive UI updates.
 
 ## Install
 
@@ -141,7 +151,7 @@ sse.patch_elements(%(<li>New item</li>), selector: "#list", mode: Datastar::Frag
 sse.patch_elements([%(<div id="a">A</div>), %(<div id="b">B</div>)])
 ```
 
-**Merge modes:** `Morph` (default), `Inner`, `Outer`, `Prepend`, `Append`, `Before`, `After`, `UpsertAttributes`
+**Merge modes:** `Outer` (default), `Inner`, `Replace`, `Prepend`, `Append`, `Before`, `After`, `Remove`
 
 #### `#remove_elements`
 
@@ -383,8 +393,8 @@ get "/subscribe/:list_id" do |env|
     # Subscribe to receive broadcasts for this list
     sse.subscribe("todos:#{list_id}")
 
-    # Send initial state
-    sse.patch_elements("#list", render_todos(list_id))
+    # Send initial state (fragment includes its own ID)
+    sse.patch_elements(render_todos(list_id))
 
     # Connection stays open, broadcasts arrive automatically
   end
@@ -400,7 +410,7 @@ post "/todos/:list_id" do |env|
 
   # All subscribed clients receive this update
   Datastar::PubSub.broadcast("todos:#{list_id}") do |sse|
-    sse.patch_elements("#list", render_todos(list_id))
+    sse.patch_elements(render_todos(list_id))
   end
 
   env.response.status_code = 201
