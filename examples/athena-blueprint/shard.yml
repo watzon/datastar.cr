@@ -1,0 +1,23 @@
+name: athena-blueprint
+version: 0.1.0
+
+authors:
+  - Chris Watson <cawatson1993@gmail.com>
+
+targets:
+  athena-blueprint:
+    main: src/athena-blueprint.cr
+
+dependencies:
+  datastar:
+    path: ../../
+  athena:
+    github: athena-framework/framework
+    version: ~> 0.21.0
+  blueprint:
+    github: stephannv/blueprint
+    version: ~> 1.0.0
+
+crystal: ">= 1.18.2"
+
+license: MIT
