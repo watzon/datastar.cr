@@ -1,22 +1,50 @@
 # Datastar.cr
 
-A Crystal SDK for [Datastar](https://data-star.dev), the hypermedia framework that extends HTML with reactive signals and server-sent events.
+[![Standard Readme](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
+[![Crystal](https://img.shields.io/badge/crystal-%3E%3D1.18.2-black)](https://crystal-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Datastar enables you to build interactive web applications using server-side rendering with minimal JavaScript. This SDK provides a type-safe, ergonomic API for streaming UI updates to the browser using Server-Sent Events (SSE).
+A Crystal SDK for the Datastar hypermedia framework.
 
-## Features
+Datastar is a lightweight (~10KB) framework that brings reactive UI updates to server-rendered applications using Server-Sent Events (SSE) and HTML data attributes. This SDK provides a type-safe Crystal API for streaming DOM updates, managing reactive signals, and executing scripts in the browser—all from your server-side code.
 
-- **Server-Sent Events** - Stream real-time updates to the browser
-- **Concurrent Streaming** - Run multiple stream blocks in parallel with fiber-based concurrency
-- **Connection Health Monitoring** - Automatic heartbeat and client disconnection detection
-- **Type-Safe API** - Full Crystal type safety with compile-time guarantees
-- **Framework Integration** - Built-in adapters for Blueprint and Athena
-- **Flexible Rendering** - Support for HTML strings, custom components, and template engines
-- **Signal Management** - Patch and remove reactive signals in the browser
-- **DOM Manipulation** - Patch, merge, append, and remove DOM elements
-- **Script Execution** - Execute JavaScript in the browser context
+## Table of Contents
 
-## Installation
+- [Background](#background)
+- [Install](#install)
+- [Usage](#usage)
+  - [Quick Start](#quick-start)
+  - [Streaming Mode](#streaming-mode)
+  - [One-Off Mode](#one-off-mode)
+- [API](#api)
+  - [DOM Manipulation](#dom-manipulation)
+  - [Signal Management](#signal-management)
+  - [Script Execution](#script-execution)
+  - [Connection Management](#connection-management)
+- [Framework Integration](#framework-integration)
+  - [Blueprint](#blueprint)
+  - [Athena](#athena)
+  - [Custom Components](#custom-components)
+- [Configuration](#configuration)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Background
+
+[Datastar](https://data-star.dev) combines the simplicity of server-side rendering with the interactivity of modern frontend frameworks. Instead of sending JSON and rebuilding the UI in JavaScript, Datastar streams HTML fragments directly from the server using SSE.
+
+This SDK implements the [Datastar SSE protocol](https://data-star.dev/reference/sse_events) for Crystal, inspired by the official [Ruby SDK](https://github.com/starfederation/datastar-ruby).
+
+**Key features:**
+
+- Stream real-time UI updates via SSE
+- Concurrent streaming with fiber-based concurrency
+- Automatic heartbeat and connection health monitoring
+- Built-in adapters for Blueprint and Athena frameworks
+- Flexible rendering with the `Renderable` protocol
+
+## Install
 
 Add the dependency to your `shard.yml`:
 
@@ -32,12 +60,13 @@ Then run:
 shards install
 ```
 
-## Quick Start
+## Usage
+
+### Quick Start
 
 ```crystal
 require "datastar"
 
-# In your HTTP handler
 def handle_events(request, response)
   sse = Datastar::ServerSentEventGenerator.new(request, response)
 
@@ -47,28 +76,9 @@ def handle_events(request, response)
 end
 ```
 
-## Basic Usage
-
-### Creating a ServerSentEventGenerator
-
-The `ServerSentEventGenerator` is the main interface for streaming updates to the browser:
-
-```crystal
-require "datastar"
-
-# Basic initialization
-sse = Datastar::ServerSentEventGenerator.new(request, response)
-
-# Custom heartbeat interval (default: 3 seconds)
-sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: 5.seconds)
-
-# Disable heartbeat
-sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
-```
-
 ### Streaming Mode
 
-Use `stream` for long-lived connections that send multiple updates:
+Use `stream` for long-lived connections with multiple updates:
 
 ```crystal
 sse.stream do |stream|
@@ -79,106 +89,59 @@ sse.stream do |stream|
 end
 ```
 
-The stream block automatically:
-- Sets proper SSE headers (`text/event-stream`, `Cache-Control`, etc.)
-- Manages concurrent access through channels
-- Handles connection lifecycle events
-- Cleans up resources when the block completes
+The stream block sets SSE headers, manages concurrency, and handles cleanup automatically.
 
 ### One-Off Mode
 
-For single updates without a persistent connection:
+For single updates without persistent connections:
 
 ```crystal
 sse.patch_elements(%(<div id="notification">Task completed!</div>))
 sse.finish
 ```
 
-## API Reference
+## API
 
 ### DOM Manipulation
 
 #### `#patch_elements`
 
-Patch HTML fragments into the DOM with various merge strategies:
+Patch HTML fragments into the DOM:
 
 ```crystal
-# Basic usage - morphs the entire document
+# Basic usage
 sse.patch_elements(%(<div id="message">Hello!</div>))
 
 # Target a specific element
-sse.patch_elements(
-  %(<p>Updated content</p>),
-  selector: "#target"
-)
+sse.patch_elements(%(<p>Updated</p>), selector: "#target")
 
 # Append to a list
-sse.patch_elements(
-  %(<li>New item</li>),
-  selector: "#list",
-  mode: Datastar::FragmentMergeMode::Append
-)
+sse.patch_elements(%(<li>New item</li>), selector: "#list", mode: Datastar::FragmentMergeMode::Append)
 
-# Multiple fragments at once
-sse.patch_elements([
-  %(<div id="header">Header</div>),
-  %(<div id="footer">Footer</div>)
-])
-
-# Use view transitions for smooth animations
-sse.patch_elements(
-  %(<div id="card">Updated card</div>),
-  use_view_transition: true
-)
+# Multiple fragments
+sse.patch_elements([%(<div id="a">A</div>), %(<div id="b">B</div>)])
 ```
 
-**Merge Modes:**
-- `Morph` (default) - Intelligently merge with existing DOM
-- `Inner` - Replace inner HTML
-- `Outer` - Replace entire element
-- `Prepend` - Insert at the beginning
-- `Append` - Insert at the end
-- `Before` - Insert before element
-- `After` - Insert after element
-- `UpsertAttributes` - Merge attributes only
+**Merge modes:** `Morph` (default), `Inner`, `Outer`, `Prepend`, `Append`, `Before`, `After`, `UpsertAttributes`
 
 #### `#remove_elements`
 
-Remove elements from the DOM:
-
 ```crystal
-# Remove a specific element
 sse.remove_elements("#notification")
-
-# Remove with view transition
-sse.remove_elements("#old-content", use_view_transition: true)
 ```
 
 ### Signal Management
 
-Signals are Datastar's reactive state system. Update signals on the server to reactively update the UI.
-
 #### `#patch_signals`
 
-Update reactive signals in the browser:
+Update reactive signals:
 
 ```crystal
-# Using named arguments
-sse.patch_signals(count: 42, user: {name: "Alice", email: "alice@example.com"})
-
-# Using a hash
-sse.patch_signals({
-  "isLoading" => false,
-  "items" => [1, 2, 3]
-})
-
-# Only set if signal doesn't exist
+sse.patch_signals(count: 42, user: {name: "Alice"})
 sse.patch_signals({enabled: true}, only_if_missing: true)
 ```
 
 #### `#remove_signals`
-
-Remove signals from the browser state:
 
 ```crystal
 sse.remove_signals(["user.name", "user.email"])
@@ -186,131 +149,50 @@ sse.remove_signals(["user.name", "user.email"])
 
 #### Reading Signals
 
-Access signals sent from the browser:
-
 ```crystal
 # As JSON::Any
 signals = sse.signals
 count = signals["count"].as_i
 
-# As typed object
-struct UserSignals
-  include JSON::Serializable
-
-  property name : String
-  property email : String
-end
-
-user_signals = sse.signals(UserSignals)
-puts user_signals.name
+# As typed struct
+user = sse.signals(UserSignals)
 ```
 
 ### Script Execution
 
 #### `#execute_script`
 
-Execute JavaScript in the browser:
-
 ```crystal
-# Basic script execution
-sse.execute_script(%(console.log("Hello from server!")))
-
-# Keep the script tag in the DOM
-sse.execute_script("initializeWidget()", auto_remove: false)
-
-# Add custom attributes (e.g., for ES modules)
-sse.execute_script(
-  %(import('./module.js')),
-  attributes: {"type" => "module"}
-)
+sse.execute_script(%(console.log("Hello!")))
+sse.execute_script("initWidget()", auto_remove: false)
+sse.execute_script(%(import('./mod.js')), attributes: {"type" => "module"})
 ```
 
 #### `#redirect`
 
-Redirect the browser to a new URL:
-
 ```crystal
 sse.redirect("/dashboard")
-sse.redirect("https://example.com")
 ```
 
 ### Connection Management
 
-#### Lifecycle Callbacks
-
-Register callbacks for connection events:
-
 ```crystal
-sse.on_connect do
-  puts "Client connected"
-end
+# Lifecycle callbacks
+sse.on_connect { puts "Connected" }
+sse.on_client_disconnect { puts "Client left" }
+sse.on_server_disconnect { puts "Done streaming" }
+sse.on_error { |ex| Log.error { ex.message } }
 
-sse.on_client_disconnect do
-  puts "Client disconnected"
-end
+# Manual connection check
+sse.check_connection!  # Raises IO::Error if closed
 
-sse.on_server_disconnect do
-  puts "Server finished streaming"
-end
-
-sse.on_error do |ex|
-  puts "Error: #{ex.message}"
-end
+# Check connection state
+sse.closed?
 ```
-
-#### `#check_connection!`
-
-Manually verify the connection is still alive:
-
-```crystal
-sse.stream do |stream|
-  loop do
-    stream.check_connection!  # Raises IO::Error if closed
-    # ... wait for events ...
-  end
-end
-```
-
-#### `#closed?`
-
-Check if the connection has been closed:
-
-```crystal
-if sse.closed?
-  puts "Connection is closed"
-end
-```
-
-## Concurrent Streaming
-
-Multiple stream blocks can run concurrently using Crystal's fibers:
-
-```crystal
-sse.stream do |stream|
-  # Spawn concurrent updates
-  spawn do
-    10.times do |i|
-      sleep 1.second
-      stream.patch_signals(counter1: i)
-    end
-  end
-
-  spawn do
-    5.times do |i|
-      sleep 2.seconds
-      stream.patch_signals(counter2: i)
-    end
-  end
-end
-```
-
-All output is safely serialized through channels to ensure thread-safe writes to the response.
 
 ## Framework Integration
 
-### Blueprint Integration
-
-Use Blueprint components directly with Datastar:
+### Blueprint
 
 ```crystal
 require "datastar"
@@ -319,25 +201,19 @@ require "datastar/adapters/blueprint"
 class GreetingCard
   include Blueprint::HTML
 
-  def initialize(@name : String)
-  end
+  def initialize(@name : String); end
 
   def blueprint
-    div id: "greeting", class: "card" do
+    div id: "greeting" do
       h1 { "Hello, #{@name}!" }
-      p { "Welcome to Datastar" }
     end
   end
 end
 
-sse.stream do |stream|
-  stream.patch_elements(GreetingCard.new("World"))
-end
+sse.patch_elements(GreetingCard.new("World"))
 ```
 
-### Athena Integration
-
-Use the Athena adapter for seamless integration with the Athena web framework:
+### Athena
 
 ```crystal
 require "athena"
@@ -358,209 +234,54 @@ class EventsController < ATH::Controller
       end
     end
   end
-
-  @[ARTA::Post("/notify")]
-  def one_off_notification : Nil
-    sse = datastar
-    sse.patch_elements(%(<div id="notification">Done!</div>))
-    sse.finish
-  end
 end
 ```
 
-### Custom Component Integration
+### Custom Components
 
-Implement the `Datastar::Renderable` protocol for custom components:
+Implement `Datastar::Renderable`:
 
 ```crystal
-class CustomComponent
+class MyComponent
   include Datastar::Renderable
 
-  def initialize(@title : String, @items : Array(String))
-  end
+  def initialize(@title : String); end
 
   def to_datastar_html : String
-    String.build do |str|
-      str << %(<div class="custom">)
-      str << %(<h2>#{@title}</h2>)
-      str << %(<ul>)
-      @items.each do |item|
-        str << %(<li>#{item}</li>)
-      end
-      str << %(</ul></div>)
-    end
+    %(<h1>#{@title}</h1>)
   end
 end
 
-sse.patch_elements(CustomComponent.new("Tasks", ["Buy milk", "Walk dog"]))
+sse.patch_elements(MyComponent.new("Hello"))
 ```
 
 ## Configuration
 
-### Global Configuration
-
-Configure global defaults:
+### Global
 
 ```crystal
 Datastar.configure do |config|
-  # Set default heartbeat interval
   config.heartbeat = 5.seconds
-
-  # Global error handler
-  config.on_error = ->(ex : Exception) {
-    Log.error { "Datastar error: #{ex.message}" }
-  }
+  config.on_error = ->(ex : Exception) { Log.error { ex.message } }
 end
 ```
 
-### Per-Instance Configuration
-
-Override settings per instance:
+### Per-Instance
 
 ```crystal
-# Custom heartbeat
-sse = Datastar::ServerSentEventGenerator.new(
-  request,
-  response,
-  heartbeat: 10.seconds
-)
-
-# Disable heartbeat
-sse = Datastar::ServerSentEventGenerator.new(
-  request,
-  response,
-  heartbeat: false
-)
-
-# Custom error handler
-sse.on_error do |ex|
-  puts "Connection error: #{ex.message}"
-end
+sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: 10.seconds)
+sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
 ```
 
-## Examples
+## Maintainers
 
-### Real-Time Counter
-
-```crystal
-sse.stream do |stream|
-  100.times do |i|
-    sleep 0.1.seconds
-    stream.patch_elements(%(<div id="counter">Count: #{i}</div>))
-  end
-end
-```
-
-### Live Search Results
-
-```crystal
-sse.stream do |stream|
-  query = sse.signals["searchQuery"].as_s
-
-  results = search_database(query)
-
-  html = String.build do |str|
-    results.each do |result|
-      str << %(<div class="result">#{result.title}</div>)
-    end
-  end
-
-  stream.patch_elements(html, selector: "#results")
-end
-```
-
-### Progress Indicator
-
-```crystal
-sse.stream do |stream|
-  total_steps = 10
-
-  total_steps.times do |step|
-    # Perform work
-    process_step(step)
-
-    # Update progress
-    progress = ((step + 1) / total_steps * 100).to_i
-    stream.patch_signals(progress: progress)
-    stream.patch_elements(
-      %(<div class="progress-bar" style="width: #{progress}%"></div>),
-      selector: "#progress"
-    )
-  end
-
-  stream.patch_elements(%(<div class="success">Complete!</div>))
-end
-```
-
-### Chat Application
-
-```crystal
-sse.stream do |stream|
-  channel = subscribe_to_chat_room(room_id)
-
-  channel.each do |message|
-    stream.patch_elements(
-      %(<div class="message">
-        <strong>#{message.author}:</strong> #{message.text}
-      </div>),
-      selector: "#messages",
-      mode: Datastar::FragmentMergeMode::Append
-    )
-  end
-end
-```
-
-### Form Validation
-
-```crystal
-sse.stream do |stream|
-  email = sse.signals["email"].as_s
-
-  if valid_email?(email)
-    stream.patch_elements(
-      %(<span class="valid">✓ Email is valid</span>),
-      selector: "#email-validation"
-    )
-    stream.patch_signals(emailValid: true)
-  else
-    stream.patch_elements(
-      %(<span class="error">Invalid email format</span>),
-      selector: "#email-validation"
-    )
-    stream.patch_signals(emailValid: false)
-  end
-
-  stream.finish
-end
-```
-
-## Development
-
-### Running Tests
-
-```bash
-crystal spec
-```
-
-### Building
-
-```bash
-shards build
-```
-
-### Code Style
-
-This project follows the [Crystal coding style guide](https://crystal-lang.org/reference/conventions/coding_style.html).
-
-Format your code with:
-
-```bash
-crystal tool format
-```
+[@watzon](https://github.com/watzon)
 
 ## Contributing
 
-1. Fork it (https://github.com/watzon/datastar.cr/fork)
+PRs accepted.
+
+1. Fork it (<https://github.com/watzon/datastar.cr/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Write tests for your changes
 4. Ensure all tests pass (`crystal spec`)
@@ -569,16 +290,8 @@ crystal tool format
 7. Push to the branch (`git push origin my-new-feature`)
 8. Create a new Pull Request
 
-## Resources
-
-- [Datastar Documentation](https://data-star.dev)
-- [API Documentation](https://watzon.github.io/datastar.cr)
-- [Examples](https://github.com/watzon/datastar.cr/tree/main/examples)
+See the [Datastar documentation](https://data-star.dev) for more information about the protocol.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contributors
-
-- [Chris Watson](https://github.com/watzon) - creator and maintainer
+MIT © Chris Watson
