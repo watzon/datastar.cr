@@ -35,6 +35,11 @@ Datastar is a lightweight (~10KB) framework that brings reactive UI updates to s
     - [Athena](#athena)
     - [Request Detection](#request-detection)
     - [Custom Components](#custom-components)
+  - [Pub/Sub for Multi-Session Sync](#pubsub-for-multi-session-sync)
+    - [Setup](#setup)
+    - [Subscribe to Topics](#subscribe-to-topics)
+    - [Broadcast Updates](#broadcast-updates)
+    - [Custom Backend](#custom-backend)
   - [Configuration](#configuration)
     - [Global](#global)
     - [Per-Instance](#per-instance)
@@ -291,6 +296,94 @@ class MyComponent
 end
 
 sse.patch_elements(MyComponent.new("Hello"))
+```
+
+## Pub/Sub for Multi-Session Sync
+
+Enable real-time synchronization across multiple browser sessions. When one client makes a change, all clients subscribed to the same topic receive updates automatically.
+
+### Setup
+
+```crystal
+require "datastar/pubsub"
+
+# Configure at app startup
+Datastar::PubSub.configure
+
+# With lifecycle callbacks
+Datastar::PubSub.configure do |config|
+  config.on_subscribe do |topic, conn_id|
+    Log.info { "Client #{conn_id} joined #{topic}" }
+  end
+  config.on_unsubscribe do |topic, conn_id|
+    Log.info { "Client #{conn_id} left #{topic}" }
+  end
+end
+```
+
+### Subscribe to Topics
+
+```crystal
+get "/subscribe/:list_id" do |env|
+  list_id = env.params.url["list_id"]
+
+  env.datastar_stream do |sse|
+    # Subscribe to receive broadcasts for this list
+    sse.subscribe("todos:#{list_id}")
+
+    # Send initial state
+    sse.patch_elements("#list", render_todos(list_id))
+
+    # Connection stays open, broadcasts arrive automatically
+  end
+end
+```
+
+### Broadcast Updates
+
+```crystal
+post "/todos/:list_id" do |env|
+  list_id = env.params.url["list_id"]
+  todo = create_todo(env.params.json)
+
+  # All subscribed clients receive this update
+  Datastar::PubSub.broadcast("todos:#{list_id}") do |sse|
+    sse.patch_elements("#list", render_todos(list_id))
+  end
+
+  env.response.status_code = 201
+end
+```
+
+### Custom Backend
+
+For multi-server deployments, implement a custom backend:
+
+```crystal
+class RedisBackend < Datastar::PubSub::Backend
+  def initialize(@redis : Redis::PooledClient)
+  end
+
+  def publish(topic : String, payload : String) : Nil
+    @redis.publish("datastar:#{topic}", payload)
+  end
+
+  def subscribe(topic : String, &block : String ->) : String
+    id = UUID.random.to_s
+    spawn do
+      @redis.subscribe("datastar:#{topic}") do |on|
+        on.message { |_, msg| block.call(msg) }
+      end
+    end
+    id
+  end
+
+  def unsubscribe(subscription_id : String) : Nil
+    # Cancel the subscription fiber
+  end
+end
+
+Datastar::PubSub.configure(backend: RedisBackend.new(redis))
 ```
 
 ## Configuration
