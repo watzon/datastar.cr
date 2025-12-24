@@ -249,10 +249,10 @@ module Datastar
       begin
         @io.print(": heartbeat\n\n")
         @io.flush
-      rescue ex : IO::Error
+      rescue ex : IO::Error | HTTP::Server::ClientError
         @closed = true
         @on_client_disconnect.try &.call
-        raise ex
+        raise IO::Error.new("Connection closed")
       end
     end
 
@@ -283,7 +283,7 @@ module Datastar
           begin
             @io.print(event)
             @io.flush
-          rescue IO::Error
+          rescue IO::Error | HTTP::Server::ClientError
             @closed = true
             @on_client_disconnect.try &.call
             @output_channel.close
@@ -304,7 +304,7 @@ module Datastar
         begin
           @io.print(event.to_s)
           @io.flush
-        rescue IO::Error
+        rescue IO::Error | HTTP::Server::ClientError
           @closed = true
           @on_client_disconnect.try &.call
         end
@@ -322,7 +322,7 @@ module Datastar
 
           begin
             check_connection!
-          rescue IO::Error
+          rescue IO::Error | HTTP::Server::ClientError
             break
           end
         end
