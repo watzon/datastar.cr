@@ -102,12 +102,20 @@ module Datastar::PubSub
         @local_connections[topic]?.try(&.dup) || Set(Connection).new
       end
 
+      dead_connections = [] of Connection
+
       connections.each do |conn|
         begin
           conn.send(payload)
         rescue Channel::ClosedError
-          # Connection already closed, will be cleaned up by stream's ensure block
+          # Connection channel is closed, mark for cleanup
+          dead_connections << conn
         end
+      end
+
+      # Clean up dead connections immediately to prevent resource leaks
+      dead_connections.each do |conn|
+        spawn { unsubscribe_all(conn) }
       end
     end
   end

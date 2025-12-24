@@ -27,6 +27,7 @@ module Datastar
     @output_loop_started : Bool = false
     @completion_channel : Channel(Nil) = Channel(Nil).new
     @pubsub_connection : PubSub::Connection?
+    @pubsub_mutex : Mutex = Mutex.new
 
     def initialize(
       @io : IO,
@@ -61,11 +62,13 @@ module Datastar
     # The connection will receive all broadcasts to the topic.
     # Automatically unsubscribes when the stream ends.
     def subscribe(topic : String) : Nil
-      @pubsub_connection ||= PubSub::Connection.new(
-        output_channel: @output_channel
-      )
+      conn = @pubsub_mutex.synchronize do
+        @pubsub_connection ||= PubSub::Connection.new(
+          output_channel: @output_channel
+        )
+      end
 
-      PubSub.manager!.subscribe(topic, @pubsub_connection.not_nil!)
+      PubSub.manager!.subscribe(topic, conn)
     end
 
     # Returns true if the connection has been closed.
@@ -90,13 +93,14 @@ module Datastar
         rescue ex
           handle_error(ex)
         ensure
-          # Cleanup pub/sub subscriptions
-          if conn = @pubsub_connection
-            PubSub.manager!.unsubscribe_all(conn)
-          end
-
           old_count = @stream_count.sub(1)
           if old_count == 1
+            # Cleanup pub/sub subscriptions when last stream ends
+            conn = @pubsub_mutex.synchronize { @pubsub_connection }
+            if conn
+              PubSub.manager!.unsubscribe_all(conn)
+            end
+
             @output_channel.close
           end
         end
