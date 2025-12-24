@@ -214,5 +214,32 @@ module Datastar
 
       send_event(event)
     end
+
+    # Removes elements from the DOM.
+    #
+    # This is a convenience method that patches an empty fragment with
+    # the delete mode.
+    #
+    # ```
+    # sse.remove_elements("#old-notification")
+    # ```
+    def remove_elements(
+      selector : String,
+      *,
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+    ) : Nil
+      data_lines = ["selector #{selector}", "fragments"]
+
+      if use_view_transition
+        data_lines.insert(1, "useViewTransition true")
+      end
+
+      event = ServerSentEvent.new(
+        event_type: EventType::PatchElements,
+        data_lines: data_lines
+      )
+
+      send_event(event)
+    end
   end
 end

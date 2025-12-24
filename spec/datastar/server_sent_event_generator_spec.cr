@@ -168,4 +168,40 @@ describe Datastar::ServerSentEventGenerator do
       output.should contain "Two"
     end
   end
+
+  describe "#remove_elements" do
+    it "sends a remove event" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.remove_elements("#old-element")
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "event: datastar-patch-elements"
+      output.should contain "data: selector #old-element"
+      output.should contain "data: fragments"
+    end
+
+    it "supports use_view_transition option" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.remove_elements("#old-element", use_view_transition: true)
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "data: useViewTransition true"
+    end
+  end
 end
