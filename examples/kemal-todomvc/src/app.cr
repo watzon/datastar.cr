@@ -20,17 +20,21 @@ Datastar::PubSub.configure do |config|
   end
 end
 
-# Topic for broadcasting todo updates
+# Topic for broadcasting todo data changes
 TODOS_TOPIC = "todos"
 
-# Helper to broadcast UI updates to all connected clients
+# Helper to broadcast data updates to all connected clients.
+# Sends ALL todos (unfiltered) since each session has its own filter mode.
+# Also sends updated counts for the footer.
 def broadcast_todos
   Datastar::PubSub.broadcast(TODOS_TOPIC) do |sse|
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
+    # Send all todos - each client will see them according to their own filter
+    sse.patch_elements(TodoList.new(STORE.todos))
+    # Send updated counts (mode-independent data)
     sse.patch_elements(TodoFooter.new(
       STORE.pending_count,
       STORE.has_completed?,
-      STORE.mode
+      FilterMode::All  # Footer shows All mode for broadcasts
     ))
   end
 end
@@ -47,14 +51,14 @@ get "/updates" do |env|
     # Subscribe to receive broadcasts from other sessions
     sse.subscribe(TODOS_TOPIC)
 
-    # Send the current todo list
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
+    # Send the current todo list (all todos - session starts with All filter)
+    sse.patch_elements(TodoList.new(STORE.todos))
 
-    # Send the footer
+    # Send the footer (starting with All mode)
     sse.patch_elements(TodoFooter.new(
       STORE.pending_count,
       STORE.has_completed?,
-      STORE.mode
+      FilterMode::All
     ))
 
     # Keep connection open to receive broadcasts
@@ -169,15 +173,28 @@ patch "/todos/:id" do |env|
   end
 end
 
-# Change filter mode
+# Change filter mode (local to this session only - not broadcast)
 put "/mode/:mode" do |env|
-  mode = env.params.url["mode"].to_i
+  mode_int = env.params.url["mode"].to_i
+  mode = FilterMode.from_value(mode_int)
 
   env.datastar_stream do |sse|
-    STORE.set_mode(mode)
+    # Filter is per-session, so just update this client's view
+    filtered = case mode
+               when FilterMode::Pending
+                 STORE.todos.reject(&.completed)
+               when FilterMode::Completed
+                 STORE.todos.select(&.completed)
+               else
+                 STORE.todos
+               end
 
-    # Broadcast update to all connected clients
-    broadcast_todos
+    sse.patch_elements(TodoList.new(filtered))
+    sse.patch_elements(TodoFooter.new(
+      STORE.pending_count,
+      STORE.has_completed?,
+      mode
+    ))
   end
 end
 
