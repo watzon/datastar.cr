@@ -297,5 +297,53 @@ module Datastar
 
       send_event(event)
     end
+
+    # Executes JavaScript in the browser.
+    #
+    # See https://data-star.dev/reference/sse_events#datastar-execute-script
+    #
+    # ```
+    # sse.execute_script(%(console.log("Hello")))
+    # sse.execute_script("initWidget()", auto_remove: false)
+    # sse.execute_script("import('module')", attributes: {"type" => "module"})
+    # ```
+    def execute_script(
+      script : String,
+      *,
+      auto_remove : Bool = DEFAULT_AUTOREMOVE_SCRIPT,
+      attributes : Hash(String, String) = {} of String => String
+    ) : Nil
+      data_lines = [] of String
+
+      if auto_remove
+        data_lines << "autoRemove true"
+      end
+
+      attributes.each do |key, value|
+        data_lines << "attributes #{key} #{value}"
+      end
+
+      data_lines << "script #{script}"
+
+      event = ServerSentEvent.new(
+        event_type: EventType::ExecuteScript,
+        data_lines: data_lines
+      )
+
+      send_event(event)
+    end
+
+    # Redirects the browser to a new URL.
+    #
+    # This is a convenience method that executes a script to change
+    # the browser's location.
+    #
+    # ```
+    # sse.redirect("/dashboard")
+    # sse.redirect("https://example.com")
+    # ```
+    def redirect(url : String) : Nil
+      execute_script(%(window.location = "#{url}"))
+    end
   end
 end

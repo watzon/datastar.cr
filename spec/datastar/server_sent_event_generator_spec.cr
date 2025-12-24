@@ -260,4 +260,75 @@ describe Datastar::ServerSentEventGenerator do
       output.should contain "data: signals"
     end
   end
+
+  describe "#execute_script" do
+    it "sends a script execution event" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.execute_script(%(console.log("Hello")))
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "event: datastar-execute-script"
+      output.should contain %(console.log("Hello"))
+    end
+
+    it "includes auto_remove by default" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.execute_script("alert('hi')")
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "data: autoRemove true"
+    end
+
+    it "supports custom attributes" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.execute_script("test()", attributes: {"type" => "module"})
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "data: attributes type module"
+    end
+  end
+
+  describe "#redirect" do
+    it "sends a redirect script" do
+      io = IO::Memory.new
+      response = HTTP::Server::Response.new(io)
+      request = HTTP::Request.new("GET", "/")
+
+      sse = Datastar::ServerSentEventGenerator.new(request, response, heartbeat: false)
+
+      sse.stream do |stream|
+        stream.redirect("/dashboard")
+      end
+
+      response.close
+      output = io.to_s
+      output.should contain "event: datastar-execute-script"
+      output.should contain "/dashboard"
+      output.should contain "location"
+    end
+  end
 end
