@@ -4,6 +4,7 @@ require "../src/datastar/pubsub/connection"
 require "../src/datastar/pubsub/backend"
 require "../src/datastar/pubsub/memory_backend"
 require "../src/datastar/pubsub/manager"
+require "../src/datastar/pubsub/event_collector"
 
 # Test helper component for Renderable tests
 class TestComponent
