@@ -1,13 +1,17 @@
 require "../../spec_helper"
+
+# Load Blueprint and the adapter first
+require "blueprint/html"
 require "../../../src/datastar/adapters/blueprint"
 
+# Define test class AFTER the adapter is loaded so it gets all methods
 class TestBlueprint
   include Blueprint::HTML
 
   def initialize(@message : String)
   end
 
-  def blueprint
+  private def blueprint
     div id: "blueprint-test" do
       span { @message }
     end
@@ -20,7 +24,14 @@ describe "Blueprint adapter" do
     component.is_a?(Datastar::Renderable).should be_true
   end
 
-  it "renders to datastar HTML" do
+  it "renders to datastar HTML via to_s" do
+    component = TestBlueprint.new("Hello")
+    html = component.to_s
+    html.should contain "blueprint-test"
+    html.should contain "Hello"
+  end
+
+  it "renders to datastar HTML via to_datastar_html" do
     component = TestBlueprint.new("Hello")
     html = component.to_datastar_html
     html.should contain "blueprint-test"
