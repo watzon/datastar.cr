@@ -63,4 +63,21 @@ describe "Athena adapter" do
     content.should contain "def datastar_request?"
     content.should contain "Datastar.datastar_request?"
   end
+
+  it "requires pubsub module" do
+    content = File.read("/Users/watzon/Projects/personal/datastar.cr/src/datastar/adapters/athena.cr")
+    content.should contain "require \"../pubsub\""
+  end
+
+  it "provides datastar_broadcast helper in Controller" do
+    content = File.read("/Users/watzon/Projects/personal/datastar.cr/src/datastar/adapters/athena.cr")
+    content.should contain "def datastar_broadcast(topic : String"
+    content.should contain "Datastar::PubSub.broadcast"
+  end
+
+  it "documents Broadcaster for dependency injection" do
+    content = File.read("/Users/watzon/Projects/personal/datastar.cr/src/datastar/adapters/athena.cr")
+    content.should contain "Datastar::PubSub::Broadcaster"
+    content.should contain "@[ADI::Register]"
+  end
 end

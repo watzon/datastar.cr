@@ -10,14 +10,43 @@ require "./components/todo_footer"
 # Global store (resets on server restart)
 STORE = TodoStore.new
 
+# Configure pub/sub for multi-session sync
+Datastar::PubSub.configure do |config|
+  config.on_subscribe do |topic, conn_id|
+    Log.info { "Client #{conn_id[0..7]}... subscribed to #{topic}" }
+  end
+  config.on_unsubscribe do |topic, conn_id|
+    Log.info { "Client #{conn_id[0..7]}... unsubscribed from #{topic}" }
+  end
+end
+
+# Topic for broadcasting todo updates
+TODOS_TOPIC = "todos"
+
+# Helper to broadcast UI updates to all connected clients
+def broadcast_todos
+  Datastar::PubSub.broadcast(TODOS_TOPIC) do |sse|
+    sse.patch_elements(TodoList.new(STORE.filtered_todos))
+    sse.patch_elements(TodoFooter.new(
+      STORE.pending_count,
+      STORE.has_completed?,
+      STORE.mode
+    ))
+  end
+end
+
 # Serve the main HTML page
 get "/" do |env|
   env.datastar_render(TodoPage.new)
 end
 
-# SSE endpoint - streams initial state and updates
+# SSE endpoint - streams initial state and subscribes to updates
+# Multiple browser sessions will all receive updates when any session makes changes
 get "/updates" do |env|
   env.datastar_stream do |sse|
+    # Subscribe to receive broadcasts from other sessions
+    sse.subscribe(TODOS_TOPIC)
+
     # Send the current todo list
     sse.patch_elements(TodoList.new(STORE.filtered_todos))
 
@@ -27,6 +56,13 @@ get "/updates" do |env|
       STORE.has_completed?,
       STORE.mode
     ))
+
+    # Keep connection open to receive broadcasts
+    # The connection stays alive until the client disconnects
+    loop do
+      sleep 30.seconds
+      break if sse.closed?
+    end
   end
 end
 
@@ -40,13 +76,8 @@ patch "/todos" do |env|
     unless input.empty?
       STORE.add(input)
 
-      # Update the UI
-      sse.patch_elements(TodoList.new(STORE.filtered_todos))
-      sse.patch_elements(TodoFooter.new(
-        STORE.pending_count,
-        STORE.has_completed?,
-        STORE.mode
-      ))
+      # Broadcast update to all connected clients
+      broadcast_todos
     end
   end
 end
@@ -58,13 +89,8 @@ post "/todos/:id/toggle" do |env|
   env.datastar_stream do |sse|
     STORE.toggle(id)
 
-    # Update the UI
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
-    sse.patch_elements(TodoFooter.new(
-      STORE.pending_count,
-      STORE.has_completed?,
-      STORE.mode
-    ))
+    # Broadcast update to all connected clients
+    broadcast_todos
   end
 end
 
@@ -73,13 +99,8 @@ post "/todos/toggle-all" do |env|
   env.datastar_stream do |sse|
     STORE.toggle_all
 
-    # Update the UI
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
-    sse.patch_elements(TodoFooter.new(
-      STORE.pending_count,
-      STORE.has_completed?,
-      STORE.mode
-    ))
+    # Broadcast update to all connected clients
+    broadcast_todos
   end
 end
 
@@ -90,13 +111,8 @@ delete "/todos/:id" do |env|
   env.datastar_stream do |sse|
     STORE.remove(id)
 
-    # Update the UI
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
-    sse.patch_elements(TodoFooter.new(
-      STORE.pending_count,
-      STORE.has_completed?,
-      STORE.mode
-    ))
+    # Broadcast update to all connected clients
+    broadcast_todos
   end
 end
 
@@ -105,13 +121,8 @@ delete "/todos/completed" do |env|
   env.datastar_stream do |sse|
     STORE.remove_completed
 
-    # Update the UI
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
-    sse.patch_elements(TodoFooter.new(
-      STORE.pending_count,
-      STORE.has_completed?,
-      STORE.mode
-    ))
+    # Broadcast update to all connected clients
+    broadcast_todos
   end
 end
 
@@ -151,12 +162,9 @@ patch "/todos/:id" do |env|
       unless new_text.empty?
         todo.text = new_text
       end
-      sse.patch_elements(TodoItem.new(todo, editing: false))
-      sse.patch_elements(TodoFooter.new(
-        STORE.pending_count,
-        STORE.has_completed?,
-        STORE.mode
-      ))
+
+      # Broadcast update to all connected clients
+      broadcast_todos
     end
   end
 end
@@ -168,13 +176,8 @@ put "/mode/:mode" do |env|
   env.datastar_stream do |sse|
     STORE.set_mode(mode)
 
-    # Update the UI
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
-    sse.patch_elements(TodoFooter.new(
-      STORE.pending_count,
-      STORE.has_completed?,
-      STORE.mode
-    ))
+    # Broadcast update to all connected clients
+    broadcast_todos
   end
 end
 
@@ -183,13 +186,8 @@ put "/reset" do |env|
   env.datastar_stream do |sse|
     STORE.reset_to_defaults
 
-    # Update the UI
-    sse.patch_elements(TodoList.new(STORE.filtered_todos))
-    sse.patch_elements(TodoFooter.new(
-      STORE.pending_count,
-      STORE.has_completed?,
-      STORE.mode
-    ))
+    # Broadcast update to all connected clients
+    broadcast_todos
   end
 end
 

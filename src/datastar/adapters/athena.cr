@@ -1,6 +1,7 @@
 require "athena"
 require "../event_stream"
 require "../signals"
+require "../pubsub"
 
 module Datastar
   module Athena
@@ -68,6 +69,44 @@ module Datastar
           header_values: header_values,
           check_query: check_query
         )
+      end
+
+      # Broadcasts events to all clients subscribed to a topic.
+      #
+      # This is a convenience wrapper around `Datastar::PubSub.broadcast`.
+      # Use this to push real-time updates to multiple connected clients.
+      #
+      # Example:
+      # ```
+      # class ChatController < ATH::Controller
+      #   include Datastar::Athena::Controller
+      #
+      #   @[ARTA::Get("/subscribe/:room")]
+      #   def subscribe(room : String, request : ATH::Request) : ATH::StreamedResponse
+      #     datastar(request) do |sse|
+      #       sse.subscribe("chat:#{room}")
+      #     end
+      #   end
+      #
+      #   @[ARTA::Post("/message/:room")]
+      #   def send_message(room : String, request : ATH::Request) : ATH::Response
+      #     message = request.request.body.try(&.gets_to_end) || ""
+      #     datastar_broadcast("chat:#{room}") do |sse|
+      #       sse.patch_elements(%(<div id="messages">#{message}</div>))
+      #     end
+      #     ATH::Response.new(status: :created)
+      #   end
+      # end
+      # ```
+      #
+      # For dependency injection, you can also use `Datastar::PubSub::Broadcaster`:
+      # ```
+      # @[ADI::Register]
+      # class MyBroadcaster < Datastar::PubSub::Broadcaster
+      # end
+      # ```
+      def datastar_broadcast(topic : String, &block : PubSub::EventCollector ->) : Nil
+        Datastar::PubSub.broadcast(topic, &block)
       end
     end
 

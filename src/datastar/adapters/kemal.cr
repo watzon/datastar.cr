@@ -1,5 +1,6 @@
 require "kemal"
 require "../server_sent_event_generator"
+require "../pubsub"
 
 module Datastar
   module Kemal
@@ -97,6 +98,33 @@ module Datastar
           header_values: header_values,
           check_query: check_query
         )
+      end
+
+      # Broadcasts events to all clients subscribed to a topic.
+      #
+      # This is a convenience wrapper around `Datastar::PubSub.broadcast`.
+      # Use this to push real-time updates to multiple connected clients.
+      #
+      # Example:
+      # ```
+      # # Subscribe endpoint - clients connect here
+      # get "/subscribe/:room" do |env|
+      #   env.datastar_stream do |sse|
+      #     sse.subscribe("room:#{env.params.url["room"]}")
+      #     # Connection stays open, receiving broadcasts
+      #   end
+      # end
+      #
+      # # Action endpoint - broadcasts to all subscribers
+      # post "/message/:room" do |env|
+      #   message = env.params.json["message"].as_s
+      #   env.datastar_broadcast("room:#{env.params.url["room"]}") do |sse|
+      #     sse.patch_elements(%(<div id="messages">#{message}</div>))
+      #   end
+      # end
+      # ```
+      def datastar_broadcast(topic : String, &block : PubSub::EventCollector ->) : Nil
+        Datastar::PubSub.broadcast(topic, &block)
       end
     end
   end

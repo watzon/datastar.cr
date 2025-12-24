@@ -10,6 +10,16 @@ module Datastar::PubSub
     property backend : Backend = MemoryBackend.new
     property on_subscribe : Proc(String, String, Nil)?
     property on_unsubscribe : Proc(String, String, Nil)?
+
+    # Sets the on_subscribe callback using a block.
+    def on_subscribe(&block : String, String -> Nil) : Nil
+      @on_subscribe = block
+    end
+
+    # Sets the on_unsubscribe callback using a block.
+    def on_unsubscribe(&block : String, String -> Nil) : Nil
+      @on_unsubscribe = block
+    end
   end
 
   # The global manager instance.

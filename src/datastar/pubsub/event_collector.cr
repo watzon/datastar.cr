@@ -1,5 +1,6 @@
 require "json"
 require "../consts"
+require "../renderable"
 require "../server_sent_event"
 
 module Datastar::PubSub
@@ -16,7 +17,18 @@ module Datastar::PubSub
 
     # Patches elements into the DOM.
     def patch_elements(
-      fragment : String,
+      fragment : String | Renderable,
+      *,
+      selector : String = WHOLE_DOCUMENT_SELECTOR,
+      mode : FragmentMergeMode = DEFAULT_FRAGMENT_MERGE_MODE,
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+    ) : Nil
+      patch_elements([fragment], selector: selector, mode: mode, use_view_transition: use_view_transition)
+    end
+
+    # Patches multiple elements into the DOM.
+    def patch_elements(
+      fragments : Array(String | Renderable),
       *,
       selector : String = WHOLE_DOCUMENT_SELECTOR,
       mode : FragmentMergeMode = DEFAULT_FRAGMENT_MERGE_MODE,
@@ -36,8 +48,11 @@ module Datastar::PubSub
         data_lines << "useViewTransition true"
       end
 
-      fragment.each_line do |line|
-        data_lines << "elements #{line}"
+      fragments.each do |fragment|
+        html = fragment.is_a?(Renderable) ? fragment.to_datastar_html : fragment
+        html.each_line do |line|
+          data_lines << "elements #{line}"
+        end
       end
 
       @events << ServerSentEvent.new(
