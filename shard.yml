@@ -11,3 +11,5 @@ license: MIT
 development_dependencies:
   blueprint:
     github: stephannv/blueprint
+  athena:
+    github: athena-framework/athena
