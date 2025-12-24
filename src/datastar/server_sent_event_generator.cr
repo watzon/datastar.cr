@@ -37,7 +37,7 @@ module Datastar
     def initialize(
       @request : HTTP::Request,
       @response : HTTP::Server::Response,
-      @heartbeat : Time::Span | Bool = Datastar.config.heartbeat
+      @heartbeat : Time::Span | Bool = Datastar.config.heartbeat,
     )
       @on_error = Datastar.config.on_error
     end
@@ -186,7 +186,7 @@ module Datastar
       *,
       selector : String = WHOLE_DOCUMENT_SELECTOR,
       mode : FragmentMergeMode = DEFAULT_FRAGMENT_MERGE_MODE,
-      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION,
     ) : Nil
       patch_elements([fragment], selector: selector, mode: mode, use_view_transition: use_view_transition)
     end
@@ -197,7 +197,7 @@ module Datastar
       *,
       selector : String = WHOLE_DOCUMENT_SELECTOR,
       mode : FragmentMergeMode = DEFAULT_FRAGMENT_MERGE_MODE,
-      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION,
     ) : Nil
       data_lines = [] of String
 
@@ -241,7 +241,7 @@ module Datastar
     def remove_elements(
       selector : String,
       *,
-      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION
+      use_view_transition : Bool = DEFAULT_USE_VIEW_TRANSITION,
     ) : Nil
       data_lines = ["selector #{selector}", "fragments"]
 
@@ -266,7 +266,7 @@ module Datastar
     # sse.patch_signals({enabled: true}, only_if_missing: true)
     # ```
     def patch_signals(
-      **signals
+      **signals,
     ) : Nil
       patch_signals(signals, only_if_missing: DEFAULT_SIGNALS_ONLY_IF_MISSING)
     end
@@ -275,7 +275,7 @@ module Datastar
     def patch_signals(
       signals : Hash | NamedTuple,
       *,
-      only_if_missing : Bool = DEFAULT_SIGNALS_ONLY_IF_MISSING
+      only_if_missing : Bool = DEFAULT_SIGNALS_ONLY_IF_MISSING,
     ) : Nil
       data_lines = [] of String
 
@@ -326,7 +326,7 @@ module Datastar
       script : String,
       *,
       auto_remove : Bool = DEFAULT_AUTOREMOVE_SCRIPT,
-      attributes : Hash(String, String) = {} of String => String
+      attributes : Hash(String, String) = {} of String => String,
     ) : Nil
       data_lines = [] of String
 

@@ -6,10 +6,10 @@ module Datastar
   DEFAULT_SSE_RETRY_DURATION = 1000
 
   # Default settings
-  DEFAULT_FRAGMENT_MERGE_MODE    = FragmentMergeMode::Morph
+  DEFAULT_FRAGMENT_MERGE_MODE     = FragmentMergeMode::Morph
   DEFAULT_SIGNALS_ONLY_IF_MISSING = false
-  DEFAULT_AUTOREMOVE_SCRIPT      = true
-  DEFAULT_USE_VIEW_TRANSITION    = false
+  DEFAULT_AUTOREMOVE_SCRIPT       = true
+  DEFAULT_USE_VIEW_TRANSITION     = false
 
   # Selector for targeting the whole document
   WHOLE_DOCUMENT_SELECTOR = ""

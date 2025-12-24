@@ -13,7 +13,7 @@ module Datastar
       @event_type : String,
       @data_lines : Array(String),
       @id : String? = nil,
-      @retry_duration : Int32? = nil
+      @retry_duration : Int32? = nil,
     )
     end
 
