@@ -31,8 +31,9 @@ Datastar is a lightweight (~10KB) framework that brings reactive UI updates to s
       - [`#redirect`](#redirect)
     - [Connection Management](#connection-management)
   - [Framework Integration](#framework-integration)
-    - [Blueprint](#blueprint)
+    - [Kemal](#kemal)
     - [Athena](#athena)
+    - [Blueprint](#blueprint)
     - [Request Detection](#request-detection)
     - [Custom Components](#custom-components)
   - [Pub/Sub for Multi-Session Sync](#pubsub-for-multi-session-sync)
@@ -58,7 +59,8 @@ This SDK implements the [Datastar SSE protocol](https://data-star.dev/reference/
 - Stream real-time UI updates via SSE
 - Concurrent streaming with fiber-based concurrency
 - Automatic heartbeat and connection health monitoring
-- Built-in adapters for Blueprint and Athena frameworks
+- Built-in adapters for Kemal, Athena, and Blueprint frameworks
+- Pub/sub system for multi-session synchronization
 - Flexible rendering with the `Renderable` protocol
 
 ## Install
@@ -209,25 +211,44 @@ sse.closed?
 
 ## Framework Integration
 
-### Blueprint
+### Kemal
 
 ```crystal
-require "datastar"
-require "datastar/adapters/blueprint"
+require "kemal"
+require "datastar/adapters/kemal"
 
-class GreetingCard
-  include Blueprint::HTML
-
-  def initialize(@name : String); end
-
-  def blueprint
-    div id: "greeting" do
-      h1 { "Hello, #{@name}!" }
+# Streaming endpoint
+get "/events" do |env|
+  env.datastar_stream do |sse|
+    10.times do |i|
+      sleep 1.second
+      sse.patch_elements(%(<div id="count">#{i}</div>))
     end
   end
 end
 
-sse.patch_elements(GreetingCard.new("World"))
+# HTML response
+get "/" do |env|
+  env.datastar_render("<h1>Hello, Datastar!</h1>")
+end
+
+# Check if request is from Datastar
+get "/page" do |env|
+  if env.datastar_request?
+    env.datastar_render("<div>Fragment</div>")
+  else
+    env.datastar_render("<html><body>Full page</body></html>")
+  end
+end
+
+# Broadcast to all subscribed clients
+post "/update" do |env|
+  env.datastar_broadcast("my-topic") do |sse|
+    sse.patch_elements("<div id='content'>Updated!</div>")
+  end
+end
+
+Kemal.run
 ```
 
 ### Athena
@@ -252,13 +273,44 @@ class EventsController < ATH::Controller
 end
 ```
 
-The `LiveController` mixin also provides `datastar_render` for HTML responses:
+The `LiveController` mixin also provides `datastar_render` for HTML responses and `datastar_broadcast` for pub/sub:
 
 ```crystal
 @[ARTA::Get("/")]
 def index : ATH::Response
   datastar_render("<h1>Hello</h1>")
 end
+
+@[ARTA::Post("/update")]
+def update : ATH::Response
+  datastar_broadcast("my-topic") do |sse|
+    sse.patch_elements("<div id='content'>Updated!</div>")
+  end
+  ATH::Response.new(status: :ok)
+end
+```
+
+### Blueprint
+
+Use [Blueprint](https://github.com/stephannv/blueprint) components with Datastar:
+
+```crystal
+require "datastar"
+require "datastar/adapters/blueprint"
+
+class GreetingCard
+  include Blueprint::HTML
+
+  def initialize(@name : String); end
+
+  def blueprint
+    div id: "greeting" do
+      h1 { "Hello, #{@name}!" }
+    end
+  end
+end
+
+sse.patch_elements(GreetingCard.new("World"))
 ```
 
 ### Request Detection
